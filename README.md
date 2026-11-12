@@ -10,7 +10,8 @@ A cute 2D real-time strategy game. Gather resources, build an army, expand your 
 
 - **Left-click / drag:** Select units. **Shift:** Add to selection.
 - **Right-click:** Move, attack, gather or repair a friendly building.
-- **A + left-click:** Attack-move. **H:** Stop. **Z:** Toggle workers' auto repair.
+- Troops automatically defend after reaching a move or rally point.
+- **A + left-click:** Attack-move. **H:** Stop, including automatic attacks. **Z:** Toggle workers' auto repair.
 - **Screen edges / arrow keys / middle-button drag:** Move the camera.
 - **Minimap:** Click or drag to jump to a location.
 - **Ctrl / Command + 1–9:** Save a group. Press its number to select; double-press to locate.

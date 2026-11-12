@@ -584,6 +584,7 @@ func _process(dt):
    if u.target!=null and u.mode=='guard' and u.target.p.distance_to(u.goal)>260:
     u.target=null;u.pending=null;u.windup=0.0;u.swing_time=-1.0
    if u.target!=null and (u.target.hp<=0 or not fog.sees(u.team,u.target.p)):u.target=null;u.pending=null;u.windup=0.0;u.swing_time=-1.0
+   restore_idle_guard(u)
    if u.kind!='Pawn' and u.target==null and u.mode in ['guard','attack_move','follow']:
     var closest=400.0 if u.kind=='Catapult' else 220.0
     for v in units+buildings:
@@ -1309,3 +1310,13 @@ func follow_step(u,dt):
   u['follow_wait']=true;u.moving=false;u.path=PackedVector2Array();return
  u['follow_wait']=false;u.goal=destination
  move_unit(u,destination,dt,10)
+
+func restore_idle_guard(u):
+ if u.kind=='Pawn' or u.target!=null or u.get('retreating',false):return
+ if u.mode=='attack':
+  u.mode='guard';u.goal=u.p;u.formation=-1;u.path=PackedVector2Array()
+ elif u.mode=='move' and u.p.distance_to(u.goal)<=5:
+  if u.formation>=0:
+   var formation=formations[u.formation]
+   if formation.anchor.p.distance_to(formation.destination)>8 or u.slot_velocity.length()>0.1:return
+  u.mode='guard';u.path=PackedVector2Array()

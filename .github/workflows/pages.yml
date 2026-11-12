@@ -41,6 +41,7 @@ jobs:
           timeout 120 godot --headless --path . --script tests/worker_resource_rally.gd
           timeout 120 godot --headless --path . --script tests/training_ui.gd
           timeout 120 godot --headless --path . --script tests/worker_repair.gd
+          timeout 120 godot --headless --path . --script tests/idle_auto_attack.gd
       - name: Export
         run: ./tools/export_web.sh
       - uses: actions/configure-pages@v5
