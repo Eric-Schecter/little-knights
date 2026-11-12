@@ -1,0 +1,147 @@
+[
+  {
+    "file": "beltHandle1.ogg",
+    "sha256": "2ef665bd8b65dbe669f4560be38a6d8f04a162e618b15a49e3e71b58e558aab0",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "bookClose.ogg",
+    "sha256": "81e976532565f4372abd14e83d2684195fa548d0a28d345de221e56052454f32",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "chop.ogg",
+    "sha256": "d00c2b3c9fff07e376145c8c8c45c90e5084ec192f6ce0387db233f7b86f1486",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "cloth1.ogg",
+    "sha256": "ddb93a3671233f95da0e0b10367f082f7eb42fa6caaddcf776410aa8833c747d",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "cloth2.ogg",
+    "sha256": "8a7451193c38bc05483aec25dd193e163a15d44cf7fff04ac7912573231b0201",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "cloth3.ogg",
+    "sha256": "a48632d17a4f1416541d261a32a31612e01267144c407fa3ecab3ff410f0085b",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "clothBelt.ogg",
+    "sha256": "f29560a2aea95bbfeb643e1e8f56ec2b6f7e32f32ce4e140645a36db81de3253",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "creak1.ogg",
+    "sha256": "8a346186fd297254248cab8e8117060a52a5cf2a84f603153a762108550ea95e",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "doorClose_3.ogg",
+    "sha256": "d0a2540e5e1639bc2fbeef34e76f28e9f9cb8a151736a0ac4c13859994328d0e",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "doorClose_4.ogg",
+    "sha256": "fd21c0e7a9d0317375d2561590f0770dd3380ee35507d064862cb44d6f71595b",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "drawKnife1.ogg",
+    "sha256": "276403e72c3b71c47bc24db3083970c23f8e5551ffa78f436f83483c56f3f0bb",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "dropLeather.ogg",
+    "sha256": "097e1d3b74949b0145fda0519d40b7e0773ab82ec4858727f95be830927e1a45",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "footstep00.ogg",
+    "sha256": "6fe61ef1fc3bcf0e253bf2eb64759db6cb69e2fe452f4d88cc597ecf78a3d601",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "footstep01.ogg",
+    "sha256": "313472dba31fd0c855376069fa368bb5a198c27251cc8398ef464578b7047a4c",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "footstep02.ogg",
+    "sha256": "2d9575b7dead6e1217ca113991fc5229e9b6d998ea0726ebbb277e7398ab888f",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "footstep03.ogg",
+    "sha256": "a86756b9af9f370455ab47844239bb07fd1bee7a113068c91f0fcd9b72703fae",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "footstep04.ogg",
+    "sha256": "fd264d72a7cd622b82abde202f4ed09fa7de95d34c36473ee938ce66cdf39830",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "footstep05.ogg",
+    "sha256": "817957e1f95d97fd36870064c41673895575cde17bccb245f50364c86ed10198",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "handleCoins.ogg",
+    "sha256": "8a91f969e932df709df80ee124d86a51389eed9b67f22e5e716bc2bbf60d8dab",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "handleCoins2.ogg",
+    "sha256": "4b857968d64f9ac9336a10ffac6694d7547e1f01566ad6857b30bc8db3ee6c32",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "handleSmallLeather.ogg",
+    "sha256": "ae3cbf695aa0a8b98b5a80a835be5a3ccbd5446a24db2235cd4c3cd6fc92ed96",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "handleSmallLeather2.ogg",
+    "sha256": "a66f6db5918ad016c28a9f2768f127a7f39b5fa04481e5a3b4e78ebe2a1c282d",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "knifeSlice.ogg",
+    "sha256": "4cd96dc630bed9840c15f1dd2306da2cc56a4da26a5d3f1a03c5a7265ac5e54f",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "knifeSlice2.ogg",
+    "sha256": "6c2064d0ef988d1ec3d56868e823ea8823a5cac00f2742560052633529407def",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "metalClick.ogg",
+    "sha256": "9851a69d0c613e13bceef08060ecc4148f098ef487927cbebe270d642398a3b3",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "metalLatch.ogg",
+    "sha256": "ba9ba60b172b3ebc131a940f25793cd2e207aca7af73dc80d637277f060f1708",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "metalPot1.ogg",
+    "sha256": "159def979e8e386c2c539f5e99cc30a080eb2dcb6c911fa2e4ccc0785b2522fd",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "metalPot2.ogg",
+    "sha256": "8e1f820d217d380fde10e969d109db34303e3f4d11c3951926eddef813d04ae2",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  },
+  {
+    "file": "metalPot3.ogg",
+    "sha256": "d306e5b848f6843332d0ca19f8f7dfe5796aeb56d8273902b085df463273f1dc",
+    "source": "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip"
+  }
+]
