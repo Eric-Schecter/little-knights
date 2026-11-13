@@ -14,3 +14,5 @@ Early reference-game sprites, retired animal/toy concepts and superseded tower a
 - Match music: [War Theme, version 2](https://opengameart.org/content/war-theme) by Spring Spring, CC0.
 
 Music is converted to Ogg Vorbis and loudness-normalized.
+
+Selection and construction/repair Foley variations are rebuilt from the retained CC0 Kenney sources with `assets/audio/knights-mix/build_interactions.py`.

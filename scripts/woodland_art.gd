@@ -51,7 +51,8 @@ func _init(game):
     action.append(extract(sheet,col,team*2+1,6,4))
    for cell in walk+action:
     cell['scale']=(72.0 if spec[0]=='Cavalry' else 54.0)/height
-    cell['anchor']=foot_anchor(cell)
+    cell['anchor']=cell.bounds.get_center().x if spec[0]=='Cavalry' else foot_anchor(cell)
+    if spec[0]=='Cavalry':cell['ground_shadow']=make_ground_shadow(cell,key)
    motions[key]={'walk':walk,'action':action}
    if spec[0]=='Cavalry':frames[key]=[action[0]]
  var expansion=source_image('res://assets/knights/expansion.png')
@@ -203,7 +204,7 @@ func sprite(key,p,scale_factor,animated,flip,mod,anim_clock,actor={}):
  var phase=0.0
  if unit and not shadow_pass and not motions.has(base):
   phase=fposmod(actor.get('stride',0.0),1.0) if anim=='Run' else clampf(anim_clock/0.60,0,1)
- if unit and not shadow_pass and motions.has(base):
+ if unit and motions.has(base) and (not shadow_pass or base.ends_with('Cavalry')):
   cell=motions[base].action[0]
   if anim=='Run':
    phase=fposmod(actor.get('stride',0.0),1.0)

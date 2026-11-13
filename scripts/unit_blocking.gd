@@ -34,7 +34,7 @@ func move(u,destination,slide=true):
  if not g.contains_entity(g.units,u):u.p=destination;return
  var start=u.p
  var result=clip(start,destination-start,u.team,radius(u))
- if result.blocker!=null:contacts+=1
+ if result.blocker!=null:contacts+=1;u['blocked_by_enemy']=true
  var point=result.point
  if slide and result.blocker!=null:
   var normal=(point-result.blocker.p).normalized()

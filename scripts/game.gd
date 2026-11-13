@@ -306,7 +306,8 @@ func cmd(s,action):
  return b
 func refresh_commands():
  if selection_tools!=null:selection_tools.selected_sound()
- for c in commands.get_children():c.queue_free()
+ commands.columns=4 if not selected.is_empty() and selected[0].kind=='Pawn' else 6
+ for c in commands.get_children():commands.remove_child(c);c.queue_free()
  if selected.is_empty():
   cmd('Select army\n[F]',select_army);cmd('Find worker\n[.]',select_worker);return
  var e=selected[0]
@@ -327,9 +328,11 @@ func refresh_commands():
  elif e.kind=='Pawn':
   var repair_button=cmd('Auto repair [Z]\nToggle nearby friendly building repairs (450 range).\n20 HP/s; 1 wood per 10 HP. Manual orders or H cancel.',func():repairs.toggle())
   repair_button.set_meta('auto_repair_button',true)
+  icon_hud.build_card(repair_button,'Auto repair','1 wood')
   for k in ['House1','Barracks','Tower','Smith','Workshop','Depot']:
    var kind=k
-   cmd('%s\n%d wood'%[NAMES[k],cost(k)],func():build_mode=kind;tell('Left-click to place '+NAMES[kind]+'. Right-click cancels.'))
+   var card=cmd('%s\n%d wood'%[NAMES[k],cost(k)],func():build_mode=kind;tell('Left-click to place '+NAMES[kind]+'. Right-click cancels.'))
+   icon_hud.build_card(card,{'Workshop':'Workshop','Tower':'Arrow Tower'}.get(k,NAMES[k]),str(cost(k))+' wood')
 func cost(k):return {"House1":80,"Barracks":140,"Tower":180,"Smith":120,"Workshop":200,"Depot":100}.get(k,0)
 func train(k,b):return economy.train(k,b)
 func select_army():
@@ -435,7 +438,7 @@ func issue_order(group,p,hit,mode="move"):
    if nav_dirty:rebuild_nav()
    u.rally=Vector2(nearest_cell(p))*20+Vector2(10,10);u['spawned']=0;tell('Rally point set. Newly trained units will move here.');continue
   repairs.clear(u)
-  u['follow_unit']=null
+  u['follow_unit']=null;u['blocked_time']=0.0;u['blocked_by_enemy']=false
   u.returning=false;u.windup=0.0;u.pending=null;u.swing_time=-1.0;u.target=null;u.job=null;u.mode=mode;u.path=PackedVector2Array()
   u.goal=p+Vector2((i%4-1.5)*30,(i/4)*30);i+=1
   if hit!=null:
@@ -545,7 +548,7 @@ func stop_selected():
  for u in selected:
   if contains_entity(buildings,u):continue
   repairs.clear(u)
-  u['follow_unit']=null
+  u['follow_unit']=null;u['blocked_time']=0.0;u['blocked_by_enemy']=false
   u.returning=false;u.windup=0.0;u.pending=null;u.swing_time=-1.0;u.formation=-1;u.target=null;u.job=null;u.goal=u.p;u.mode='stop';u.path=PackedVector2Array()
  tell('Stopped. A: attack move · Right-click: move / retreat')
 func _process(dt):
@@ -584,7 +587,7 @@ func _process(dt):
    if u.target!=null and u.mode=='guard' and u.target.p.distance_to(u.goal)>260:
     u.target=null;u.pending=null;u.windup=0.0;u.swing_time=-1.0
    if u.target!=null and (u.target.hp<=0 or not fog.sees(u.team,u.target.p)):u.target=null;u.pending=null;u.windup=0.0;u.swing_time=-1.0
-   restore_idle_guard(u)
+   restore_idle_guard(u,dt)
    if u.kind!='Pawn' and u.target==null and u.mode in ['guard','attack_move','follow']:
     var closest=400.0 if u.kind=='Catapult' else 220.0
     for v in units+buildings:
@@ -1311,7 +1314,16 @@ func follow_step(u,dt):
  u['follow_wait']=false;u.goal=destination
  move_unit(u,destination,dt,10)
 
-func restore_idle_guard(u):
+func restore_idle_guard(u,dt=0.0):
+ # Enemy collision can prevent arrival forever. After sustained contact, defend
+ # instead of waiting for an unreachable slot; never interrupt a retreat.
+ if u.mode=='move' and u.get('blocked_by_enemy',false) and u.p.distance_to(u.get('last_move_position',u.p))<1.0:
+  u['blocked_time']=u.get('blocked_time',0.0)+dt
+ else:u['blocked_time']=0.0
+ u['last_move_position']=u.p;u['blocked_by_enemy']=false
+ if u.kind!='Pawn' and u.mode=='move' and not u.get('retreating',false) and u.blocked_time>=0.5:
+  u.mode='guard';u.goal=u.p;u.formation=-1;u.path=PackedVector2Array()
+
  if u.kind=='Pawn' or u.target!=null or u.get('retreating',false):return
  if u.mode=='attack':
   u.mode='guard';u.goal=u.p;u.formation=-1;u.path=PackedVector2Array()

@@ -18,9 +18,9 @@ const BANK={
  'wood':['chop'],
  'mine':['@mine'],
  'deliver':['handleCoins','handleCoins2'],
- 'build':['chop']}
-const LEVELS={'tower_cannon':-4.0,'tower_cannon_hit':-9.0,'tower_rapid':-10.0,'tower_heavy':-8.0,'tower_watch':-10.0,'tower_heavy_hit':-13.0,'tower_watch_hit':-14.0,'select':-16.0,'train':-9.0,'complete':-9.0,'collapse':-13.0,'death':-14.0,'command':-9.0,'step':-28.0,'swing':-16.0,'bolt':-14.0,'hit':-14.0,'metal':-15.0,'wood':-22.0,'mine':-22.0,'deliver':-20.0,'build':-23.0}
-const GAPS={'tower_cannon':0.25,'tower_cannon_hit':0.15,'tower_rapid':0.10,'tower_heavy':0.25,'tower_watch':0.2,'tower_heavy_hit':0.12,'tower_watch_hit':0.15,'select':0.12,'train':0.4,'complete':0.4,'collapse':0.3,'death':0.18,'command':0.18,'step':0.16,'swing':0.12,'bolt':0.12,'hit':0.10,'metal':0.14,'wood':0.22,'mine':0.38,'deliver':0.25,'build':0.25}
+ 'build':['@construction'],'repair':['@repair']}
+const LEVELS={'tower_cannon':-4.0,'tower_cannon_hit':-9.0,'tower_rapid':-10.0,'tower_heavy':-8.0,'tower_watch':-10.0,'tower_heavy_hit':-13.0,'tower_watch_hit':-14.0,'select':-16.0,'train':-9.0,'complete':-9.0,'collapse':-13.0,'death':-14.0,'command':-9.0,'step':-28.0,'swing':-16.0,'bolt':-14.0,'hit':-14.0,'metal':-15.0,'wood':-18.0,'mine':-18.0,'deliver':-20.0,'build':-16.0,'repair':-16.0}
+const GAPS={'tower_cannon':0.25,'tower_cannon_hit':0.15,'tower_rapid':0.10,'tower_heavy':0.25,'tower_watch':0.2,'tower_heavy_hit':0.12,'tower_watch_hit':0.15,'select':0.12,'train':0.4,'complete':0.4,'collapse':0.3,'death':0.18,'command':0.18,'step':0.16,'swing':0.12,'bolt':0.12,'hit':0.10,'metal':0.14,'wood':0.22,'mine':0.38,'deliver':0.25,'build':0.25,'repair':0.3}
 var g
 var streams={}
 var voices=[]
@@ -62,7 +62,7 @@ func tick(dt):
  for voice in voices:voice.stream_paused=g.paused
 func audible(p):
  if p==Vector2.INF:return true
- return g.fog.sees(0,p) and Rect2(g.cam+Vector2(0,72),Vector2(1440,660)).grow(40).has_point(p)
+ return g.fog.sees(0,p) and Rect2(g.cam+g.field_rect().position,g.field_rect().size).grow(40).has_point(p)
 func play(kind,p=Vector2.INF):
  if not BANK.has(kind) or g.paused or not audible(p):return false
  # Own completion/production events queue on a dedicated voice: never dropped by combat.

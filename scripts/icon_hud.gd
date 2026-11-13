@@ -151,3 +151,9 @@ func update_training_buttons():
   button.disabled=not reasons.is_empty()
   button.self_modulate=Color(0.48,0.48,0.48) if button.disabled else Color.WHITE
   button.tooltip_text=button.get_meta('base_hint')+('\nMissing requirements:\n'+'\n'.join(reasons) if button.disabled else '\nReady to train')
+
+func build_card(b,title,price):
+ var texture=b.icon;b.icon=null;b.custom_minimum_size=Vector2(108,64)
+ var icon=TextureRect.new();icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;icon.texture=texture;icon.position=Vector2(5,5);icon.size=Vector2(30,30);icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;icon.mouse_filter=Control.MOUSE_FILTER_IGNORE;b.add_child(icon)
+ var name_label=Label.new();name_label.text=title;name_label.position=Vector2(4,34);name_label.size=Vector2(100,22);name_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;name_label.add_theme_font_size_override('font_size',12);name_label.mouse_filter=Control.MOUSE_FILTER_IGNORE;b.add_child(name_label)
+ var cost_label=Label.new();cost_label.text=price;cost_label.position=Vector2(36,8);cost_label.size=Vector2(68,24);cost_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;cost_label.add_theme_font_size_override('font_size',10);cost_label.add_theme_color_override('font_color',Color('#dbc9a2'));cost_label.mouse_filter=Control.MOUSE_FILTER_IGNORE;b.add_child(cost_label)

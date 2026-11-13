@@ -46,7 +46,10 @@ func selected_sound():
  if g.paused:return
  var kinds=[]
  for u in g.selected:
-  if alive(u) and not kinds.has(u.kind):kinds.append(u.kind)
+  if u.hp<=0:continue
+  var kind=u.kind
+  if kind=='Tower' and u.get('tower_branch','')=='cannon':kind='Tower_cannon'
+  if not kinds.has(kind):kinds.append(kind)
  replies=kinds
  if kinds.is_empty() and not g.selected.is_empty():g.sound('select')
 func _process(dt):
@@ -58,9 +61,8 @@ func _process(dt):
  if not replies.is_empty() and reply_clock<=0:
   if not g.paused:
    var kind=replies.pop_front()
-   var sample={'Warrior':'metalPot3','Archer':'handleSmallLeather','Spearman':'handleSmallLeather2','Cavalry':'handleCoins2','Catapult':'chop','Pawn':'handleSmallLeather'}.get(kind,'handleSmallLeather')
-   voice.stream=load('res://assets/audio/kenney-rpg/'+sample+'.ogg')
-   voice.pitch_scale={'Warrior':0.85,'Archer':1.12,'Spearman':0.95,'Cavalry':0.8,'Catapult':0.75,'Pawn':1.2}.get(kind,1.0)
+   voice.stream=load('res://assets/audio/knights-mix/select_'+kind+'.wav')
+   voice.pitch_scale=1.0
    voice.play();reply_clock=maxf(0.25,voice.stream.get_length()/voice.pitch_scale+0.05)
   else:replies.clear()
  var members=g.selected.filter(alive)

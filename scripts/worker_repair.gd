@@ -48,5 +48,5 @@ func tick(u,dt):
   if u.repair_clock>=0.5:
    u.repair_clock-=0.5
    g.economy.credit(u.team,Vector2i(0,-1));target.hp=minf(target.max,target.hp+10)
-   g.sfx.play('build',u.p)
+   g.sfx.play('repair',u.p)
  return true
