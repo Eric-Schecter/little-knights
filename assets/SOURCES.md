@@ -16,3 +16,5 @@ Early reference-game sprites, retired animal/toy concepts and superseded tower a
 Music is converted to Ogg Vorbis and loudness-normalized.
 
 Selection and construction/repair Foley variations are rebuilt from the retained CC0 Kenney sources with `assets/audio/knights-mix/build_interactions.py`.
+
+The short attack-command horn is an original procedural sound; rebuild it with `assets/audio/knights-mix/build_attack_horn.py`.

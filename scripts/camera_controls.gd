@@ -6,11 +6,16 @@ var panning=false
 var minimap_drag=false
 func _init(game):g=game
 func _ready():
+ for binding in [['camera_left',KEY_A,KEY_LEFT],['camera_right',KEY_D,KEY_RIGHT],['camera_up',KEY_W,KEY_UP],['camera_down',KEY_S,KEY_DOWN]]:
+  if not InputMap.has_action(binding[0]):InputMap.add_action(binding[0])
+  for key in binding.slice(1):
+   var event=InputEventKey.new();event.physical_keycode=key
+   if not InputMap.action_has_event(binding[0],event):InputMap.action_add_event(binding[0],event)
  get_viewport().mouse_entered.connect(func():inside=true)
  get_viewport().mouse_exited.connect(cancel_pointer)
  get_window().focus_exited.connect(cancel_pointer)
 func cancel_pointer():
- inside=false;panning=false;minimap_drag=false
+ inside=false;panning=false;minimap_drag=false;g.drag=false
 func enabled():
  return not g.paused and g.outcome=='' and (g.start_menu==null or not g.start_menu.is_open()) and (g.settings_menu==null or not g.settings_menu.is_open())
 func center_minimap(pos):
@@ -45,7 +50,10 @@ func tick(dt):
  if not enabled():
   panning=false;minimap_drag=false;return
  if not get_window().has_focus():return
- var direction=Input.get_vector('ui_left','ui_right','ui_up','ui_down')
+ var direction=keyboard_direction()
  if inside and not panning and not minimap_drag and direction==Vector2.ZERO:
   direction=edge_direction(g.get_global_mouse_position(),g.get_viewport_rect().size)
  if not panning and not minimap_drag:g.cam+=direction*550*dt
+
+func keyboard_direction():
+ return Input.get_vector('camera_left','camera_right','camera_up','camera_down')

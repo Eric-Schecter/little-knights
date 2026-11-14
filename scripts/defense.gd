@@ -21,7 +21,7 @@ func tick(dt):
  var home=homes[0]
  var workers=g.units.filter(func(u):return u.team==1 and u.hp>0 and u.kind=='Pawn')
  var army=g.units.filter(func(u):return u.team==1 and u.hp>0 and u.kind!='Pawn' and not u.get('retreating',false))
- threats=(g.units+g.buildings).filter(func(e):return e.team==0 and e.hp>0 and g.fog.sees(1,e.p) and ((g.opponent.retreat.emergency and home.p.distance_to(e.p)<400) or bases.any(func(b):return b.p.distance_to(e.p)<360) or workers.any(func(w):return w.p.distance_to(e.p)<300)))
+ threats=(g.units+g.buildings).filter(func(e):return e.team==0 and g.attackable(e) and g.fog.sees(1,e.p) and ((g.opponent.retreat.emergency and home.p.distance_to(e.p)<400) or bases.any(func(b):return b.p.distance_to(e.p)<360) or workers.any(func(w):return w.p.distance_to(e.p)<300)))
  # Buildings only count as threats if they can fire; workers need to be close.
  threats=threats.filter(func(e):return (not g.contains_entity(g.buildings,e) or e.kind=='Tower') and (e.kind!='Pawn' or bases.any(func(b):return b.p.distance_to(e.p)<180)))
  if not threats.is_empty():

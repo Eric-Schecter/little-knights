@@ -4,7 +4,16 @@ func run():
  var game=load('res://main.tscn').instantiate();root.add_child(game)
  await process_frame
  game.paused=false;game.ai_enabled=false
+ if game.start_menu!=null:game.start_menu.start()
  var controls=game.camera_controls
+ Input.action_press('camera_left');assert(controls.keyboard_direction()==Vector2.LEFT)
+ Input.action_press('camera_up');assert(is_equal_approx(controls.keyboard_direction().length(),1.0))
+ Input.action_release('camera_left');Input.action_release('camera_up')
+ for binding in [['camera_left',KEY_A],['camera_right',KEY_D],['camera_up',KEY_W],['camera_down',KEY_S]]:
+  var event=InputEventKey.new();event.physical_keycode=binding[1];assert(InputMap.action_has_event(binding[0],event))
+ var key=InputEventKey.new();key.pressed=true;key.keycode=KEY_A;game._unhandled_input(key);assert(not game.attack_cursor)
+ key.keycode=KEY_X;game._unhandled_input(key);assert(game.attack_cursor)
+ key.keycode=KEY_ESCAPE;game._unhandled_input(key);assert(not game.attack_cursor)
  assert(controls.edge_direction(Vector2(0,450),Vector2(1440,900))==Vector2.LEFT)
  assert(controls.edge_direction(Vector2(-1,450),Vector2(1440,900))==Vector2.ZERO)
  assert(is_equal_approx(controls.edge_direction(Vector2(1,1),Vector2(1440,900)).length(),1.0))

@@ -40,10 +40,21 @@ jobs:
           timeout 120 godot --headless --path . -- --self-test
           timeout 120 godot --headless --path . --script tests/worker_resource_rally.gd
           timeout 120 godot --headless --path . --script tests/training_ui.gd
+          timeout 120 godot --headless --path . --script tests/purchase_buttons.gd
           timeout 120 godot --headless --path . --script tests/worker_repair.gd
           timeout 120 godot --headless --path . --script tests/idle_auto_attack.gd
           timeout 120 godot --headless --path . --script tests/contact_auto_attack.gd
           timeout 120 godot --headless --path . --script tests/interaction_audio.gd
+          timeout 120 godot --headless --path . --script tests/difficulty.gd
+          timeout 120 godot --headless --path . --script tests/selection_feedback.gd
+          timeout 120 godot --headless --path . --script tests/move_picking.gd
+          timeout 120 godot --headless --path . --script tests/building_spacing.gd
+          timeout 120 godot --headless --path . --script tests/no_camps.gd
+          timeout 120 godot --headless --path . --script tests/resting_separation.gd
+          timeout 120 godot --headless --path . --script tests/dead_rally.gd
+          timeout 120 godot --headless --path . --script tests/building_auto_attack.gd
+          timeout 120 godot --headless --path . --script tests/incremental_nav.gd
+          timeout 120 godot --headless --path . --script tests/building_blueprint.gd
       - name: Export
         run: ./tools/export_web.sh
       - uses: actions/configure-pages@v5

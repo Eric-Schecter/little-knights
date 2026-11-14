@@ -2,6 +2,7 @@ extends SceneTree
 func _initialize():call_deferred('run')
 func run():
  var g=load('res://main.tscn').instantiate();root.add_child(g);g.set_process(false);g.ai_enabled=false;g.units.clear();g.resources.clear()
+ g.time=g.opponent.profile().first_attack
  var planner=g.supply.planner;var rally=planner.staging(1);var ours=[]
  for i in range(3):
   var u=g.entity('Warrior',rally+Vector2(i*35,0),1);g.units.append(u);ours.append(u)
@@ -26,8 +27,10 @@ func run():
  var assault=[]
  for i in range(6):
   var u=g.entity('Warrior',rally+Vector2(i*25,0),1);g.units.append(u);assault.append(u)
- planner.teams[1].members=assault.duplicate();planner.plan(1)
- assert(planner.teams[1].assault and assault.all(func(u):return u.mode=='attack_move' and u.goal.distance_to(planner.assault_destination(1))<200),'Army advances toward enemy base after securing camp')
+ planner.teams[1].members=assault.duplicate()
+ for u in assault:u.p=g.supply.points[0].p
+ planner.plan(1)
+ assert(planner.teams[1].assault and assault.all(func(u):return u.mode=='attack_move' and u.goal.distance_to(planner.assault_destination(1))<200),'Army advances toward enemy base after reaching route waypoint')
  planner.reset();g.supply.scores=[0.0,0.0];g.supply.points[0].owner=0;g.supply.points[1].owner=0
  g.units=[];var front=[]
  for i in range(3):

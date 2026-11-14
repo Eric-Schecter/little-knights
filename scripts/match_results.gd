@@ -72,7 +72,7 @@ func build_ui():
 func finish(outcome,seconds,reason='Town Center destroyed'):
  if not snapshot.is_empty():return
  snapshot={'outcome':outcome,'seconds':seconds,'teams':totals.duplicate(true)}
- if g.supply!=null and g.supply.enabled:
+ if g.supply!=null and g.supply.enabled and g.supply.camps_enabled:
   snapshot['supply_income']=g.supply.income.duplicate()
  snapshot['reason']=reason
  if overlay==null:return
@@ -83,6 +83,6 @@ func finish(outcome,seconds,reason='Town Center destroyed'):
  for i in range(ROWS.size()):
   for team in range(2):values[i][team].text=str(snapshot.teams[team][ROWS[i][0]])
  insight.text='Workers lost: %d'%snapshot.teams[0].worker_losses
- if g.supply!=null and g.supply.enabled:
+ if g.supply!=null and g.supply.enabled and g.supply.camps_enabled:
   insight.text='Camp income   +%d gold / +%d wood'%[snapshot.supply_income[0].x,snapshot.supply_income[0].y]
  overlay.show();reopen.hide();replay.grab_focus()

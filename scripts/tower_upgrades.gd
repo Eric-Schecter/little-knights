@@ -53,6 +53,7 @@ func commands(b):
   g.icon_hud.decorate(button,'Tower_'+key,button.tooltip_text)
   button.disabled=level(b)>=2 or b.get('tower_pending','')!=''
   button.tooltip_text=NAMES[key]+' · '+('MAX LEVEL' if level(b)>=2 else '%d gold / %d wood · %.0fs'%[cost.x,cost.y,duration(b)])+'\n'+{'arrow':'Fast fire, prefers light infantry. Level 2: two-shot burst.','cannon':'Slow cannonball, area damage. Level 2: larger blast radius.'}[key]+'\nPermanent branch choice. Cannot fire during upgrade.'
+  g.icon_hud.purchase_button(button,cost,'Maximum level' if level(b)>=2 else ('Upgrade in progress' if b.get('tower_pending','')!='' else ''))
 func draw(b):
  if branch(b)=='':return
  var top=b.p+Vector2(0,-g.art.building_rect(b).size.y*0.65)

@@ -76,8 +76,8 @@ func build():
   var value=g.label_at('',pos+Vector2(44,5),21);value.mouse_filter=Control.MOUSE_FILTER_STOP
   attributes[key]={'icon':icon,'value':value}
  health=ProgressBar.new();health.position=Vector2(388,800);health.size=Vector2(200,12);health.show_percentage=false;style_bar(health,Color('#79b59b'));g.hud.add_child(health);health.size=Vector2(200,12)
- var help=g.button('',Vector2(1378,862),Vector2(38,30),func():g.tell('LMB: select · RMB: order · Arrow keys: camera · Space: pause'))
- decorate(help,'help','LMB: select / drag\nRMB: move, gather, attack\nArrow keys: camera · Space: pause\nF: army · .: worker · A + LMB: attack move · H: stop movement and attacks')
+ var help=g.button('',Vector2(1378,862),Vector2(38,30),func():g.tell('LMB: select · RMB: order · WASD / arrows: camera · Space: pause'))
+ decorate(help,'help','LMB: select / drag\nRMB: move, gather, attack · Alt+RMB: ground\nWASD / arrows: camera · Space: pause\nF: army · .: worker · X + LMB: attack move · H: stop movement and attacks')
  status=g.button('',Vector2(590,850),Vector2(38,36),func():pass);decorate(status,'help','')
  progress=ProgressBar.new();progress.position=Vector2(650,881);progress.size=Vector2(300,6);progress.show_percentage=false;style_bar(progress,Color('#d9b96c'));g.hud.add_child(progress);progress.size=Vector2(300,6)
  construction_text=g.label_at('',Vector2(650,851),17)
@@ -92,6 +92,7 @@ func update():
  values[0].text=str(g.gold);values[1].text=str(g.wood);values[2].text='%d / %d'%[g.population(),g.capacity()];values[3].text='%02d:%02d'%[int(g.time)/60,int(g.time)%60]
  values[2].modulate=Color('#eea079') if g.population()>=g.capacity() else Color.WHITE
  var e=null if g.selected.is_empty() else g.selected[0]
+ portrait.visible=e!=null
  portrait.texture=icons['flag' if e==null else ('Tower_'+e.tower_branch if e.kind=='Tower' and e.get('tower_branch','')!='' else e.kind)]
  count.text='' if e==null or (g.contains_entity(g.buildings,e) and g.selected.size()==1) else '× '+str(g.selected.size())
  health.visible=e!=null
@@ -142,15 +143,31 @@ func update():
  var multiple=g.selected.filter(func(u):return g.contains_entity(g.units,u) and u.hp>0).size()>1
  for widget in [portrait,count,unit_name,hp_text,mana_text,mana_bar,mana_icon,health,status]:
   if multiple:widget.hide()
- if not multiple:portrait.show();count.show();unit_name.show()
+ if not multiple:
+  portrait.visible=e!=null;count.visible=e!=null;unit_name.visible=e!=null
 
 func update_training_buttons():
  for button in g.commands.get_children():
-  if not button.has_meta('train_kind') or button.is_queued_for_deletion():continue
-  var reasons=g.economy.training_requirements(button.get_meta('train_kind'),button.get_meta('train_building'))
+  if button.is_queued_for_deletion():continue
+  var reasons:PackedStringArray=[]
+  if button.has_meta('train_kind'):
+   reasons=g.economy.training_requirements(button.get_meta('train_kind'),button.get_meta('train_building'))
+  elif button.has_meta('purchase_cost'):
+   var cost=button.get_meta('purchase_cost');var money=g.economy.balance(0)
+   if money.x<cost.x:reasons.append('Need %d more gold'%(cost.x-money.x))
+   if money.y<cost.y:reasons.append('Need %d more wood'%(cost.y-money.y))
+   var lock=button.get_meta('purchase_lock','')
+   if lock!='':reasons.append(lock)
+  else:continue
   button.disabled=not reasons.is_empty()
+  if button.disabled:
+   var tween=button.get_meta('feedback_tween') if button.has_meta('feedback_tween') else null
+   if tween!=null and tween.is_valid():tween.kill()
   button.self_modulate=Color(0.48,0.48,0.48) if button.disabled else Color.WHITE
-  button.tooltip_text=button.get_meta('base_hint')+('\nMissing requirements:\n'+'\n'.join(reasons) if button.disabled else '\nReady to train')
+  button.tooltip_text=button.get_meta('base_hint')+('\nUnavailable:\n'+'\n'.join(reasons) if button.disabled else '')
+func purchase_button(button,cost,lock=''):
+ button.set_meta('purchase_cost',cost);button.set_meta('purchase_lock',lock);button.set_meta('base_hint',button.tooltip_text)
+ update_training_buttons()
 
 func build_card(b,title,price):
  var texture=b.icon;b.icon=null;b.custom_minimum_size=Vector2(108,64)

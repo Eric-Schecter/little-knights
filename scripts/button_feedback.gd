@@ -28,6 +28,8 @@ static func attach(button):
 static func animate(button,color,duration=0.12):
  var old=(button.get_meta('feedback_tween') if button.has_meta('feedback_tween') else null)
  if old!=null and old.is_valid():old.kill()
+ if button.disabled:
+  button.self_modulate=Color(0.48,0.48,0.48);return
  var tween=button.create_tween()
  tween.tween_property(button,'self_modulate',color,duration)
  button.set_meta('feedback_tween',tween)

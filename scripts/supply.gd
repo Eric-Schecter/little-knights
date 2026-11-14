@@ -3,6 +3,8 @@ const CAPTURE_SECONDS=8.0
 const RADIUS=108.0
 var g
 var enabled=true
+# Routes and starting armies remain; neutral capture objectives are retired.
+var camps_enabled=false
 var points=[]
 var scores=[0.0,0.0]
 var income=[Vector2i.ZERO,Vector2i.ZERO]
@@ -37,9 +39,9 @@ func reset():
    if not sources.is_empty():g.issue_order([workers[i]],sources[0].p,sources[0])
  g.selected=g.units.filter(func(u):return u.team==0 and u.kind!='Pawn')
  g.nav_dirty=true
- g.tell('Destroy the enemy Town Center to win. Camps supply bonus resources.')
+ g.tell('Destroy the enemy Town Center to win.')
 func tick(dt):
- if not enabled or g.outcome!='':return
+ if not enabled or not camps_enabled or g.outcome!='':return
  for index in range(points.size()):
   var point=points[index];var present=[false,false]
   for u in g.units:
@@ -69,12 +71,13 @@ func tick(dt):
    var reward=Vector2i(12,6)
    g.economy.credit(point.owner,reward);income[point.owner]+=reward
 func order_to(index):
+ if not camps_enabled:return
  var army=g.selected.filter(func(u):return g.contains_entity(g.units,u) and u.team==0 and u.kind!='Pawn')
  if army.is_empty():g.tell('Select soldiers first (F selects your army).');return
  g.issue_order(army,points[index].p,null,'attack_move')
  g.tell('Capture with soldiers: 8s neutral / 16s enemy. Contested points stop paying.')
 func build_ui():
- if not enabled:return
+ if not enabled or not camps_enabled:return
  for i in range(2):
   var index=i
   var button=g.button('R' if i==0 else 'N',g.minimap_rect().position+points[i].p/g.WORLD*Vector2(200,125)-Vector2(9,9),Vector2(18,18),func():g.cam=(points[index].p-Vector2(720,350)).clamp(Vector2(0,-72),g.camera_limit()))
@@ -82,12 +85,12 @@ func build_ui():
   button.tooltip_text=points[i].name+' (public objective; click to view)'
   map_buttons.append(button)
 func update_ui():
- if not enabled:return
+ if not enabled or not camps_enabled:return
  for i in range(map_buttons.size()):
   map_buttons[i].position=g.minimap_rect().position+points[i].p/g.WORLD*Vector2(200,125)-Vector2(9,9)
   map_buttons[i].modulate=Color('#ead7ac') if points[i].owner<0 else (Color('#70d7ef') if points[i].owner==0 else Color('#f7a08c'))
 func draw_world():
- if not enabled:return
+ if not enabled or not camps_enabled:return
  for point in points:
   var c=Color('#cfbd8c') if point.owner<0 else (Color('#65c9ed') if point.owner==0 else Color('#e88d77'))
   g.draw_arc(point.p,RADIUS,0,TAU,64,Color(c,0.45),2,true)

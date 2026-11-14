@@ -1,5 +1,7 @@
 extends RefCounted
 var g
+var placement_path_key=[]
+var placement_path_result=false
 func _init(game):g=game
 func price(kind):return {'Pawn':Vector2i(50,0),'Warrior':Vector2i(80,0),'Archer':Vector2i(60,30),'Spearman':Vector2i(55,20),'Cavalry':Vector2i(125,40),'Catapult':Vector2i(140,100)}.get(kind,Vector2i.ZERO)
 func notify(team,text):
@@ -14,7 +16,9 @@ func train(kind,b):
  var reasons=training_requirements(kind,b)
  if not reasons.is_empty():notify(b.team,'; '.join(reasons));return false
  var p=price(kind)
- credit(b.team,-p);b.queue.append(kind);notify(b.team,g.NAMES[kind]+' queued. Click its queue card to cancel.');return true
+ credit(b.team,-p);b.queue.append(kind);notify(b.team,g.NAMES[kind]+' queued. Click its queue card to cancel.')
+ if b.team==0 and g.icon_hud!=null:g.icon_hud.update_training_buttons()
+ return true
 func cancel(b,index):
  if g.outcome!='':return false
  if b.hp<=0 or b.team!=0 or index<0 or index>=b.queue.size():return false
@@ -22,7 +26,15 @@ func cancel(b,index):
  b.queue.remove_at(index);g.gold+=p.x;g.wood+=p.y
  if index==0:b.train=0.0
  g.tell('Cancelled %s: +%d gold, +%d wood (full refund).'%[g.NAMES[kind],p.x,p.y]);return true
+func update_unit_rally(b):
+ var leader=b.get('rally_unit')
+ if leader==null:return
+ if leader.hp<=0 or not g.contains_entity(g.units,leader):
+  b['rally_unit']=null;b['rally_resource']=null;b['rally_disabled']=true
+  b.rally=b.p+Vector2(0,76);b['spawned']=0
+ else:b.rally=leader.p
 func tick_training(b,dt):
+ update_unit_rally(b)
  if b.queue.is_empty() or b.progress<1 or b.hp<=0:return
  if g.population(b.team)>g.capacity(b.team):return
  b.train+=dt
@@ -32,15 +44,16 @@ func tick_training(b,dt):
  spawn=Vector2(g.nearest_cell(spawn))*20+Vector2(10,10)
  if not g.blocking.clear_at(spawn,b.team,18.0 if b.queue[0]=="Cavalry" else 12.0):return
  var u=g.entity(b.queue.pop_front(),spawn,b.team)
- var destination=b.rally
- for slot in range(100):
+ var no_rally=b.get('rally_disabled',false)
+ var destination=spawn if no_rally else b.rally
+ for slot in range(0 if no_rally else 100):
   var candidate=b.rally+Vector2((slot%5)*42,int(slot/5)*42)
   candidate=Vector2(g.nearest_cell(candidate))*20+Vector2(10,10)
   if g.units.any(func(other):return other.hp>0 and (other.p.distance_to(candidate)<26 or (other.team==b.team and other.goal.distance_to(candidate)<26))):continue
   destination=candidate;break
  u.goal=destination;b['spawned']=int(b.get('spawned',0))+1
  g.match_results.trained(b.team,u.kind)
- u.mode='move'
+ u.mode='guard' if no_rally else 'move'
  var leader=b.get('rally_unit')
  if leader!=null and leader.hp>0 and g.contains_entity(g.units,leader):
   u['follow_unit']=leader;u.mode='follow'
@@ -124,13 +137,19 @@ func work(u,dt):
   var aim=point+(u.p-point).normalized()*18
   u.work_state='To construction'
   if g.move_unit(u,aim,dt,5):
+   if b.progress<=0:
+    var half=g.footprint(b)
+    if g.units.any(func(other):return other.hp>0 and not is_same(other,u) and abs(other.p.x-b.p.x)<half.x and abs(other.p.y-b.p.y)<half.y):
+     u.work_state='Waiting for clear foundation';return
    u.work_state='Building'
    var previous_clock=u.work_clock
    u.work_clock=fposmod(u.work_clock+dt,0.55)
    if u.work_clock<previous_clock:g.sfx.play('build',u.p)
    if abs(b.p.x-u.p.x)>1:u.face=1 if b.p.x>u.p.x else -1
    var added=min(1.0-b.progress,dt/12)
+   var starting=b.progress<=0
    b.progress+=added;b.hp=min(b.max,b.hp+b.max*added)
+   if starting:g.invalidate_building_nav(b)
    if b.progress>=1:
     b['completed_at']=g.time
     notify(u.team,g.NAMES[b.kind]+' complete.')
@@ -143,20 +162,26 @@ func placement_reason(kind,p,workers,check_money=true):
  if kind not in ['House1','Barracks','Tower','Smith','Workshop','Depot']:return 'Choose a building.'
  if workers.is_empty():return 'Select a worker first.'
  if check_money and balance(workers[0].team).y<g.cost(kind):return 'Not enough wood: need %d.'%g.cost(kind)
- var half=Vector2(57,45);var area=Rect2(p-half,half*2)
+ var half=g.building_half_size(kind);var area=Rect2(p-half,half*2)
  for corner in [p-half,p+half,p+Vector2(-half.x,half.y),p+Vector2(half.x,-half.y)]:
   if not g.land(corner):return 'The whole foundation must be on land.'
  if g.crossing_reserved(area):return 'Keep the bridge passage clear.'
  for b in g.buildings:
-  if b.hp>0 and area.grow(18).intersects(Rect2(b.p-g.footprint(b),g.footprint(b)*2)):return 'Blocked by another building.'
+  if b.hp>0 and area.grow(12).intersects(Rect2(b.p-g.footprint(b),g.footprint(b)*2)):return 'Blocked by another building.'
  for r in g.resources:
   if r.amount>0 and area.grow(30).has_point(r.p):return 'Blocked by a tree or gold deposit.'
  for u in g.units:
   if u.hp>0 and area.grow(14).has_point(u.p):return 'Move units away from the foundation.'
  if g.nav_dirty:g.rebuild_nav()
- var reachable=false
- for worker in workers:
-  if not g.nav.get_point_path(g.nearest_cell(worker.p),g.nearest_cell(p)).is_empty():reachable=true;break
+ var destination=g.nearest_cell(p)
+ var origins=workers.map(func(worker):return g.nearest_cell(worker.p))
+ var key=[g.nav_revision,destination,origins]
+ var reachable=placement_path_result
+ if key!=placement_path_key:
+  reachable=false
+  for origin in origins:
+   if not g.nav.get_point_path(origin,destination).is_empty():reachable=true;break
+  placement_path_key=key;placement_path_result=reachable
  if not reachable:return 'Workers cannot reach this site.'
  return ''
 func place(kind,p,workers):
@@ -166,8 +191,9 @@ func place(kind,p,workers):
   if not workers.is_empty():notify(workers[0].team,reason)
   return null
  var b=g.entity(kind,p,workers[0].team);b.progress=0.0;b.hp=1.0
- g.buildings.append(b);g.nav_dirty=true;credit(workers[0].team,Vector2i(0,-g.cost(kind)))
+ g.buildings.append(b);g.invalidate_building_nav(b);credit(workers[0].team,Vector2i(0,-g.cost(kind)))
  for u in workers:
+  g.repairs.clear(u)
   u.job=b;u.target=null;u.pending=null;u.windup=0;u.formation=-1;u.path=PackedVector2Array();u.returning=u.carry>0
  if workers[0].team==0:g.build_mode='';g.tell('Construction ordered. Workers must reach the site.')
  return b

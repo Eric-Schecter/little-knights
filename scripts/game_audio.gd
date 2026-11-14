@@ -8,6 +8,7 @@ const BANK={
  'collapse':['@collapse'],
  'death':['@death'],
  'command':['@command'],
+ 'attack_order':['@attack_horn'],
  'step':['footstep00','footstep01','footstep02','footstep03','footstep04','footstep05'],
  'swing':['knifeSlice','knifeSlice2'],
  'bolt':['@bolt'],
@@ -19,8 +20,8 @@ const BANK={
  'mine':['@mine'],
  'deliver':['handleCoins','handleCoins2'],
  'build':['@construction'],'repair':['@repair']}
-const LEVELS={'tower_cannon':-4.0,'tower_cannon_hit':-9.0,'tower_rapid':-10.0,'tower_heavy':-8.0,'tower_watch':-10.0,'tower_heavy_hit':-13.0,'tower_watch_hit':-14.0,'select':-16.0,'train':-9.0,'complete':-9.0,'collapse':-13.0,'death':-14.0,'command':-9.0,'step':-28.0,'swing':-16.0,'bolt':-14.0,'hit':-14.0,'metal':-15.0,'wood':-18.0,'mine':-18.0,'deliver':-20.0,'build':-16.0,'repair':-16.0}
-const GAPS={'tower_cannon':0.25,'tower_cannon_hit':0.15,'tower_rapid':0.10,'tower_heavy':0.25,'tower_watch':0.2,'tower_heavy_hit':0.12,'tower_watch_hit':0.15,'select':0.12,'train':0.4,'complete':0.4,'collapse':0.3,'death':0.18,'command':0.18,'step':0.16,'swing':0.12,'bolt':0.12,'hit':0.10,'metal':0.14,'wood':0.22,'mine':0.38,'deliver':0.25,'build':0.25,'repair':0.3}
+const LEVELS={'attack_order':-12.0,'tower_cannon':-4.0,'tower_cannon_hit':-9.0,'tower_rapid':-10.0,'tower_heavy':-8.0,'tower_watch':-10.0,'tower_heavy_hit':-13.0,'tower_watch_hit':-14.0,'select':-16.0,'train':-9.0,'complete':-9.0,'collapse':-13.0,'death':-14.0,'command':-9.0,'step':-28.0,'swing':-16.0,'bolt':-14.0,'hit':-14.0,'metal':-15.0,'wood':-18.0,'mine':-18.0,'deliver':-20.0,'build':-16.0,'repair':-16.0}
+const GAPS={'attack_order':2.0,'tower_cannon':0.25,'tower_cannon_hit':0.15,'tower_rapid':0.10,'tower_heavy':0.25,'tower_watch':0.2,'tower_heavy_hit':0.12,'tower_watch_hit':0.15,'select':0.12,'train':0.4,'complete':0.4,'collapse':0.3,'death':0.18,'command':0.18,'step':0.16,'swing':0.12,'bolt':0.12,'hit':0.10,'metal':0.14,'wood':0.22,'mine':0.38,'deliver':0.25,'build':0.25,'repair':0.3}
 var g
 var streams={}
 var voices=[]
@@ -73,7 +74,7 @@ func play(kind,p=Vector2.INF):
  if cooldown.get(kind,0)>0:return false
  var voice=null
  # Reserve two voices for acknowledgements and major lifecycle events.
- var important=kind in ['command','train','complete','collapse','death']
+ var important=kind in ['command','attack_order','train','complete','collapse','death']
  var cannon=kind in ['tower_cannon','tower_cannon_hit']
  var pool=voices.slice(10,12) if cannon else (voices.slice(0,10) if important else voices.slice(0,8))
  for candidate in pool:

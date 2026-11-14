@@ -17,8 +17,9 @@ func total(group):
  return value
 func staging(team):return Vector2((g.WORLD.x/2-430) if team==0 else (g.WORLD.x/2+430),g.supply.points[0].p.y)
 func enemy_power(team,p):
- return total((g.units+g.buildings).filter(func(u):return u.team!=team and u.hp>0 and g.fog.sees(team,u.p) and u.p.distance_to(p)<340))
+ return total((g.units+g.buildings).filter(func(u):return u.team!=team and g.attackable(u) and g.fog.sees(team,u.p) and u.p.distance_to(p)<340))
 func plan(team):
+ if team==1 and not g.opponent.can_launch():return
  var state=teams[team]
  var army=g.units.filter(func(u):return u.team==team and u.hp>0 and u.kind!='Pawn' and (team!=1 or not g.opponent.defense.active or not g.contains_entity(g.opponent.defense.defenders,u)))
  state.members=state.members.filter(func(u):return u.hp>0 and g.contains_entity(army,u))
@@ -41,7 +42,7 @@ func plan(team):
     g.issue_order(state.members,destination,null,'move')
     for u in state.members:u['army_recover_until']=g.time+16;u['supply_task']=-1
    state.assault=false;state.members=[];state.cooldown=g.time+16;withdrawals+=1
-  elif not state.assault and state.members.size()>=6 and g.supply.points[state.objective].owner==team:
+  elif not state.assault and ((g.supply.camps_enabled and state.members.size()>=6 and g.supply.points[state.objective].owner==team) or (not g.supply.camps_enabled and state.members.any(func(u):return u.p.distance_to(g.supply.points[state.objective].p)<150))):
    state.assault=true
    g.issue_order(state.members,assault_destination(team),null,'attack_move')
  var reserves=army.filter(func(u):return not state.members.any(func(v):return is_same(v,u)) and not u.get('retreating',false) and g.time>=u.get('retreat_cooldown',0) and g.time>=u.get('army_recover_until',0))
@@ -61,6 +62,7 @@ func plan(team):
  state.members=ready.duplicate();state.objective=objective
  g.issue_order(ready,assault_destination(team) if state.assault else g.supply.points[objective].p,null,'attack_move')
  for u in ready:u['supply_task']=objective
+ if team==1:state.cooldown=g.time+g.opponent.profile().attack_gap
  launches.append({'team':team,'time':g.time,'count':ready.size(),'objective':objective,'critical':critical})
 
 func assault_destination(team):

@@ -32,6 +32,7 @@ var blocking_video=false
 var blocking_demo
 var opponent
 var ai_enabled=true
+var difficulty='easy'
 var enemy_money=Vector2i(300,300)
 var enemy_gathered=0
 var enemy_trained=0
@@ -66,6 +67,9 @@ var formation_video=false
 var formation_phase=0
 var nav=AStarGrid2D.new()
 var nav_dirty=true
+var nav_regions:Array[Rect2]=[]
+var nav_revision=0
+var nav_ready=false
 var attack_cursor=false
 var review=false
 var review_step=0
@@ -85,6 +89,8 @@ var raid=60.0
 var wave=0
 var drag=false
 var drag_start=Vector2.ZERO
+var drag_screen=Vector2.ZERO
+var render_serial=0
 var build_mode=""
 var note="Select workers, then right-click gold or trees to gather."
 var note_timer=12.0
@@ -136,6 +142,7 @@ func _ready():
  web_loading_stage("Building map and interface…")
  reset()
  make_hud()
+ add_child(preload('res://scripts/command_flags.gd').new(self))
  match_results.build_ui()
  supply.build_ui()
  review="--stage1-video" in OS.get_cmdline_user_args()
@@ -196,8 +203,9 @@ func contains_entity(group,value):
  return group.any(func(item):return is_same(item,value))
 func entity(kind,p,team=0):
  var hp={"Pawn":70,"Warrior":145,"Archer":85,"Castle":1800,"Barracks":650,"House1":350,"Tower":700,"Cavalry":190,"Spearman":110,"Catapult":160,"Smith":550,"Workshop":750,"Depot":450}.get(kind,100)
- return {"research":"","research_time":0.0,"carry_kind":"gold","returning":false,"work_state":"Idle","work_clock":0.0,"windup":0.0,"swing_time":-1.0,"pending":null,"slot_velocity":Vector2.ZERO,"motion_hold":0.0,"stride":fposmod(p.x*0.013+p.y*0.017,1.0),"step_distance":0.0,"hurt_time":0.0,"formation":-1,"mode":"guard","path":PackedVector2Array(),"path_goal":Vector2(-999,-999),"kind":kind,"p":p,"team":team,"hp":float(hp),"max":float(hp),"goal":p,"target":null,"job":null,"carry":0,"tick":0.0,"cool":0.0,"moving":false,"face":1.0,"progress":1.0,"queue":[],"train":0.0,"rally":p+Vector2(110,100)}
+ return {"auto_repair":kind=="Pawn","research":"","research_time":0.0,"carry_kind":"gold","returning":false,"work_state":"Idle","work_clock":0.0,"windup":0.0,"swing_time":-1.0,"pending":null,"slot_velocity":Vector2.ZERO,"motion_hold":0.0,"stride":fposmod(p.x*0.013+p.y*0.017,1.0),"step_distance":0.0,"hurt_time":0.0,"formation":-1,"mode":"guard","path":PackedVector2Array(),"path_goal":Vector2(-999,-999),"kind":kind,"p":p,"team":team,"hp":float(hp),"max":float(hp),"goal":p,"target":null,"job":null,"carry":0,"tick":0.0,"cool":0.0,"moving":false,"face":1.0,"progress":1.0,"queue":[],"train":0.0,"rally":p+Vector2(110,100)}
 func reset():
+ nav_regions.clear();nav_ready=false
  if selection_tools!=null:selection_tools.reset()
  if technology!=null:technology.reset()
  if sfx!=null:sfx.reset()
@@ -308,8 +316,7 @@ func refresh_commands():
  if selection_tools!=null:selection_tools.selected_sound()
  commands.columns=4 if not selected.is_empty() and selected[0].kind=='Pawn' else 6
  for c in commands.get_children():commands.remove_child(c);c.queue_free()
- if selected.is_empty():
-  cmd('Select army\n[F]',select_army);cmd('Find worker\n[.]',select_worker);return
+ if selected.is_empty():return
  var e=selected[0]
  if e.progress<1:
   cmd('Under construction',func():tell('Assign workers with right-click to complete construction.'));return
@@ -325,13 +332,15 @@ func refresh_commands():
    var badge=Label.new();badge.text='%d/2'%level;badge.position=Vector2(39,43);badge.add_theme_font_size_override('font_size',12);badge.mouse_filter=Control.MOUSE_FILTER_IGNORE;research_button.add_child(badge)
    research_button.disabled=level>=2 or e.research!=''
    research_button.tooltip_text+='\nAll existing and future military units. Research is lost if this building is destroyed.'
+   icon_hud.purchase_button(research_button,price,'Maximum level' if level>=2 else ('Research in progress' if e.research!='' or buildings.any(func(b):return b.hp>0 and b.team==e.team and b.research==key) else ''))
  elif e.kind=='Pawn':
-  var repair_button=cmd('Auto repair [Z]\nToggle nearby friendly building repairs (450 range).\n20 HP/s; 1 wood per 10 HP. Manual orders or H cancel.',func():repairs.toggle())
+  var repair_button=cmd('Auto repair [Z]\nOn by default when idle (450 range).\n20 HP/s; 1 wood per 10 HP. Jobs take priority; H suspends repairs.',func():repairs.toggle())
   repair_button.set_meta('auto_repair_button',true)
   icon_hud.build_card(repair_button,'Auto repair','1 wood')
   for k in ['House1','Barracks','Tower','Smith','Workshop','Depot']:
    var kind=k
    var card=cmd('%s\n%d wood'%[NAMES[k],cost(k)],func():build_mode=kind;tell('Left-click to place '+NAMES[kind]+'. Right-click cancels.'))
+   icon_hud.purchase_button(card,Vector2i(0,cost(k)))
    icon_hud.build_card(card,{'Workshop':'Workshop','Tower':'Arrow Tower'}.get(k,NAMES[k]),str(cost(k))+' wood')
 func cost(k):return {"House1":80,"Barracks":140,"Tower":180,"Smith":120,"Workshop":200,"Depot":100}.get(k,0)
 func train(k,b):return economy.train(k,b)
@@ -355,13 +364,9 @@ func _unhandled_input(e):
   match e.keycode:
    KEY_SPACE:paused=!paused
    KEY_F:select_army()
-   KEY_T:
-    if supply.enabled:supply.order_to(0)
-   KEY_Y:
-    if supply.enabled:supply.order_to(1)
    KEY_PERIOD:select_worker()
    KEY_R:attack_base()
-   KEY_A:attack_cursor=true;tell('Attack move: left-click destination. Escape cancels.')
+   KEY_X:attack_cursor=true;tell('X · Attack move: left-click destination. Escape cancels.')
    KEY_H:attack_cursor=false;stop_selected()
    KEY_Z:repairs.toggle()
    KEY_ESCAPE:attack_cursor=false;build_mode='';selected.clear();refresh_commands()
@@ -378,26 +383,19 @@ func _unhandled_input(e):
    if e.pressed:
     if build_mode!='':place_building(world_mouse());return
     if attack_cursor:
+     drag=false
      order(world_mouse(),null,'attack_move');attack_cursor=false;return
-    drag=true;drag_start=world_mouse()
+    drag=true;drag_screen=e.position;drag_start=e.position+cam
    elif drag:
-    drag=false
-    var box=Rect2(drag_start,world_mouse()-drag_start).abs()
-    if not Input.is_key_pressed(KEY_SHIFT):selected.clear()
-    if box.size.length()>12:
-     for u in units:
-      if u.team==0 and box.has_point(u.p) and not contains_entity(selected,u):selected.append(u)
-    else:
-     var hit=pick(world_mouse(),true)
-     if hit!=null and not contains_entity(selected,hit):selected.append(hit)
-    refresh_commands()
+    finish_selection(e.position,Input.is_key_pressed(KEY_SHIFT))
   if e.button_index==MOUSE_BUTTON_RIGHT and e.pressed:
    if build_mode!='':build_mode='';return
-   order(world_mouse(),pick(world_mouse(),false))
-func pick(p,own):
+   order(e.position+cam,null if e.alt_pressed else pick_order(e.position+cam))
+func pick(p,own,ignore_friendly_units=false):
  var best=null
  var dist=35.0
  for u in units:
+  if u.hp<=0 or (ignore_friendly_units and u.team==0):continue
   if own and u.team!=0:continue
   if u.team!=0 and not fog.sees(0,u.p):continue
   var d=(u.p-Vector2(0,18)).distance_to(p)
@@ -405,29 +403,46 @@ func pick(p,own):
  if best!=null:return best
  for b in buildings:
   if own and b.team!=0:continue
-  if b.team!=0 and not fog.sees(0,b.p):continue
+  if b.team!=0 and (not attackable(b) or not fog.sees(0,b.p)):continue
   if art.building_rect(b).has_point(p):return b
  if not own:
   var trees=resources.filter(func(r):return r.kind=='wood' and r.amount>0 and fog.sees(0,r.p))
-  trees.sort_custom(func(a,b):return a.p.y>b.p.y)
+  trees.sort_custom(func(a,b):return render_before(b,a))
   for tree in trees:
    if art.tree_hit(tree,p):return tree
   for r in resources:
    if r.amount<=0 or not fog.sees(0,r.p):continue
    if r.kind!='wood' and r.p.distance_to(p)<35:return r
  return null
+func pick_order(p):
+ # Troop orders pass through allies; production buildings can still rally to them.
+ var rally=selected.any(func(e):return contains_entity(buildings,e) and e.kind in ['Castle','Barracks','Workshop'])
+ return pick(p,false,not rally)
 func order(p,hit,mode="move"):
  if outcome!='':return
  issue_order(selected,p,hit,mode)
- if not selected.is_empty():sfx.play("command")
+ if not selected.is_empty():
+  var attacking=selected.any(func(u):return contains_entity(units,u)) and (mode=='attack_move' or (hit!=null and hit.has('team') and hit.team!=0))
+  sfx.play('attack_order' if attacking else 'command')
+  var rally_order=selected.any(func(e):return contains_entity(buildings,e) and e.kind in ['Castle','Barracks','Workshop'])
+  effects=effects.filter(func(f):return not f.get('command_flag',false))
+  if not rally_order and (hit==null or not (hit.has('team') and hit.team!=0)):
+   effects.append({'p':p,'life':0.9,'command_flag':true,'attack':attacking})
+  if attacking and hit!=null:effects.append({'p':p,'target':hit,'life':0.65,'text':'','color':Color('#ffb77c'),'attack_order':true})
 func issue_order(group,p,hit,mode="move"):
  if outcome!='':return
+ if hit!=null and contains_entity(buildings,hit) and hit.progress<=0 and group.any(func(u):return u.team!=hit.team):hit=null
  var i=0
  var members=group.filter(func(u):return contains_entity(units,u))
+ # Treat non-actionable hits as ground orders so formation assignment still runs.
+ if hit!=null and not members.is_empty() and not group.any(func(e):return contains_entity(buildings,e)):
+  var actionable=(hit.has('team') and hit.team!=members[0].team) or members.any(func(u):return u.kind=='Pawn' and (hit.has('amount') or (contains_entity(buildings,hit) and (hit.progress<1 or repairs.valid(u,hit)))))
+  if not actionable:hit=null
  for u in members:u.formation=-1
  for u in group:
   if contains_entity(buildings,u):
    if u.kind not in ['Castle','Barracks','Workshop']:continue
+   u['rally_disabled']=false;u['rally_set_at']=time
    u['rally_resource']=hit if u.kind=='Castle' and hit!=null and contains_entity(resources,hit) and hit.amount>0 else null
    if u.rally_resource!=null:
     u['rally_unit']=null;u.rally=hit.p;u['spawned']=0
@@ -440,14 +455,14 @@ func issue_order(group,p,hit,mode="move"):
   repairs.clear(u)
   u['follow_unit']=null;u['blocked_time']=0.0;u['blocked_by_enemy']=false
   u.returning=false;u.windup=0.0;u.pending=null;u.swing_time=-1.0;u.target=null;u.job=null;u.mode=mode;u.path=PackedVector2Array()
-  u.goal=p+Vector2((i%4-1.5)*30,(i/4)*30);i+=1
+  u.goal=p if members.size()==1 else p+Vector2((i%4-1.5)*30,(i/4)*30);i+=1
   if hit!=null:
    if hit.has('amount') and u.kind=='Pawn':u.job=hit;u.returning=u.carry>0 and u.carry_kind!=hit.kind
    elif hit.has('team') and hit.team!=u.team:u.target=hit;u.mode='attack'
    elif hit.has('progress') and hit.progress<1 and u.kind=='Pawn':u.job=hit;u.returning=u.carry>0
    elif u.kind=='Pawn' and repairs.valid(u,hit):repairs.assign(u,hit)
  if hit==null and members.size()>1:create_formation(members,p,mode)
- effects.append({"p":p,"life":0.7,"text":"","color":Color('#ffe5a0'),"resource_order":hit!=null and hit.has("amount")})
+ if hit!=null and hit.has("amount"):effects.append({"p":p,"life":0.7,"text":"","color":Color('#ffe5a0'),"resource_order":true})
 func place_building(p):
  return economy.place(build_mode,p,selected.filter(func(u):return u.kind=='Pawn' and u.team==0 and u.hp>0))
 func field_rect():return Rect2(Vector2(0,72),get_viewport_rect().size-Vector2(0,240))
@@ -463,18 +478,38 @@ func crossing_reserved(area):
 func walkable(p):
  if not land(p):return false
  for b in buildings:
-  if b.hp>0 and abs(p.x-b.p.x)<(92 if b.kind=='Castle' else 57) and abs(p.y-b.p.y)<45:return false
+  var half=footprint(b)
+  if b.hp>0 and b.progress>0 and abs(p.x-b.p.x)<half.x and abs(p.y-b.p.y)<half.y:return false
  return true
 func nav_clear(p):
  for offset in [Vector2(-10,-10),Vector2(10,-10),Vector2(-10,10),Vector2(10,10)]:
   if not walkable(p+offset):return false
  return true
+func invalidate_building_nav(building):
+ var half=footprint(building)
+ var area=Rect2(building.p-half,half*2).grow(20)
+ # Preserve an already pending full rebuild (new map or explicit invalidation).
+ if nav_ready and (not nav_dirty or not nav_regions.is_empty()):nav_regions.append(area)
+ nav_dirty=true
+ var movers=units.duplicate()
+ for formation in formations:movers.append(formation.anchor)
+ for u in movers:
+  for point in u.path:
+   if area.has_point(point):u.path=PackedVector2Array();break
 func rebuild_nav():
- nav.region=Rect2i(Vector2i.ZERO,Vector2i(WORLD/20));nav.cell_size=Vector2(20,20);nav.offset=Vector2(10,10)
- nav.diagonal_mode=AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES;nav.update()
- for y in range(int(WORLD.y/20)):
-  for x in range(int(WORLD.x/20)):nav.set_point_solid(Vector2i(x,y),not nav_clear(Vector2(x*20+10,y*20+10)))
- nav_dirty=false
+ var dimensions=Vector2i(WORLD/20)
+ if nav_ready and not nav_regions.is_empty() and nav.region.size==dimensions:
+  for area in nav_regions:
+   var lo=Vector2i((area.position/20).floor()).clamp(Vector2i.ZERO,dimensions-Vector2i.ONE)
+   var hi=Vector2i((area.end/20).ceil()).clamp(Vector2i.ZERO,dimensions-Vector2i.ONE)
+   for y in range(lo.y,hi.y+1):
+    for x in range(lo.x,hi.x+1):nav.set_point_solid(Vector2i(x,y),not nav_clear(Vector2(x*20+10,y*20+10)))
+ else:
+  nav.region=Rect2i(Vector2i.ZERO,dimensions);nav.cell_size=Vector2(20,20);nav.offset=Vector2(10,10)
+  nav.diagonal_mode=AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES;nav.update()
+  for y in range(dimensions.y):
+   for x in range(dimensions.x):nav.set_point_solid(Vector2i(x,y),not nav_clear(Vector2(x*20+10,y*20+10)))
+ nav_regions.clear();nav_dirty=false;nav_ready=true;nav_revision+=1
 func nearest_cell(p):
  var base=Vector2i(p/20).clamp(Vector2i.ZERO,Vector2i(WORLD/20)-Vector2i.ONE)
  if not nav.is_point_solid(base):return base
@@ -506,7 +541,7 @@ func move_unit_path(u,p,dt,stop=5):
  if contains_entity(units,u) and u.kind!="Pawn" and u.target==null and u.job==null and u.formation<0 and u.p.distance_to(p)<30:
   for ally in units:
    if is_same(ally,u) or ally.team!=u.team or ally.hp<=0 or ally.moving:continue
-   if ally.p.distance_to(p)<22 and u.p.distance_to(ally.p)<=24:
+   if ally.p.distance_to(p)<blocking.radius(u)+blocking.radius(ally) and u.p.distance_to(ally.p)<=blocking.radius(u)+blocking.radius(ally)+2:
     u.goal=u.p;u.path=PackedVector2Array();return true
  if u.formation>=0 and u.target==null and u.job==null and segment_clear(u.p,p):
   var delta=p-u.p
@@ -550,7 +585,7 @@ func stop_selected():
   repairs.clear(u)
   u['follow_unit']=null;u['blocked_time']=0.0;u['blocked_by_enemy']=false
   u.returning=false;u.windup=0.0;u.pending=null;u.swing_time=-1.0;u.formation=-1;u.target=null;u.job=null;u.goal=u.p;u.mode='stop';u.path=PackedVector2Array()
- tell('Stopped. A: attack move · Right-click: move / retreat')
+ tell('Stopped. X: attack move · Right-click: move / retreat')
 func _process(dt):
  if match_video and not match_substep:
   match_substep=true
@@ -567,10 +602,7 @@ func _process(dt):
   if match_video:match_driver.tick(dt)
   if ai_enabled:opponent.tick(dt)
   for b in buildings:
-   var leader=b.get('rally_unit')
-   if leader!=null:
-    b.rally=leader.p
-    if leader.hp<=0 or not contains_entity(units,leader):b.rally_unit=null
+   economy.update_unit_rally(b)
    b.cool-=dt
    if b.progress<1:continue
    economy.tick_training(b,dt)
@@ -584,14 +616,14 @@ func _process(dt):
    if u.swing_time>=0:
     u.swing_time+=dt
     if u.swing_time>0.60:u.swing_time=-1.0
-   if u.target!=null and u.mode=='guard' and u.target.p.distance_to(u.goal)>260:
+   if u.target!=null and u.mode=='guard' and target_point(u.target,u.goal).distance_to(u.goal)>maxf(260,attack_range(u)+40):
     u.target=null;u.pending=null;u.windup=0.0;u.swing_time=-1.0
-   if u.target!=null and (u.target.hp<=0 or not fog.sees(u.team,u.target.p)):u.target=null;u.pending=null;u.windup=0.0;u.swing_time=-1.0
+   if u.target!=null and (not attackable(u.target) or not fog.sees(u.team,u.target.p)):u.target=null;u.pending=null;u.windup=0.0;u.swing_time=-1.0
    restore_idle_guard(u,dt)
    if u.kind!='Pawn' and u.target==null and u.mode in ['guard','attack_move','follow']:
     var closest=400.0 if u.kind=='Catapult' else 220.0
     for v in units+buildings:
-     if v.team!=u.team and v.hp>0 and fog.sees(u.team,v.p) and (u.mode!='guard' or v.p.distance_to(u.goal)<=260) and u.p.distance_to(v.p)<closest:closest=u.p.distance_to(v.p);u.target=v
+     if v.team!=u.team and attackable(v) and fog.sees(u.team,v.p) and (u.mode!='guard' or target_point(v,u.goal).distance_to(u.goal)<=maxf(260,attack_range(u)+40)) and combat_gap(u,v)<closest:closest=combat_gap(u,v);u.target=v
    if u.target!=null:
     combat_step(u,dt)
    elif u.mode=='follow':follow_step(u,dt)
@@ -618,7 +650,7 @@ func _process(dt):
      for victim in units+buildings:
       if victim.team!=s.team and victim.hp>0 and target_point(victim,s.end).distance_to(s.end)<=55:
        damage(victim,maxf(1,(90 if contains_entity(buildings,victim) else 24)+s.attack_bonus-armor_value(victim)))
-     sfx.play('collapse',s.end);effects.append({'p':s.end,'life':0.65,'text':'','color':Color('#c1a078')})
+     sfx.play('collapse',s.end);effects.append({'p':s.get('visual_end',s.end),'visibility_point':s.end,'life':0.45,'text':'','siege_impact':true})
     elif s.get('tower_branch','')=='cannon':
      for victim in units:
       if victim.team!=s.team and victim.hp>0 and victim.p.distance_to(s.end)<=s.blast_radius:damage(victim,maxf(1,s.raw_damage-armor_value(victim)))
@@ -636,7 +668,8 @@ func _process(dt):
   for u in units+buildings:
    if u.hp<=0:match_results.lost(u)
   for b in buildings:
-   if b.hp<=0:nav_dirty=true
+   if b.hp<=0 and not b.get('nav_removed',false):
+    invalidate_building_nav(b);b['nav_removed']=true
    if b.hp<=0 and b.kind=='Castle':fallen[b.team]=true
   if fallen[0] or fallen[1]:
    outcome='DRAW' if fallen[0] and fallen[1] else ('DEFEAT' if fallen[0] else 'VICTORY')
@@ -645,6 +678,7 @@ func _process(dt):
   buildings=buildings.filter(func(b):return b.hp>0)
   selected=selected.filter(func(u):return u.hp>0)
   supply.tick(dt)
+ update_tree_fades(dt)
  for fx in effects:fx.life-=dt
  effects=effects.filter(func(fx):return fx.life>0)
  note_timer-=dt
@@ -652,7 +686,7 @@ func _process(dt):
  cam=cam.clamp(Vector2(0,-72),camera_limit())
  if stats!=null:
   stats.text='GOLD  %d      WOOD  %d      POP  %d / %d       %02d:%02d'%[gold,wood,population(),capacity(),int(time)/60,int(time)%60]
-  details.text=('DESTROY ENEMY TOWN CENTER\nCamps: bonus gold + wood.' if supply.enabled else 'RIVER CROSSING\nDestroy the red Town Center.\n'+pace_hint()) if selected.is_empty() else '%s  × %d\nHealth: %d / %d\n%s'%[NAMES[selected[0].kind],selected.size(),selected[0].hp,selected[0].max,selection_status()]
+  details.text=('DESTROY ENEMY TOWN CENTER' if supply.enabled else 'RIVER CROSSING\nDestroy the red Town Center.\n'+pace_hint()) if selected.is_empty() else '%s  × %d\nHealth: %d / %d\n%s'%[NAMES[selected[0].kind],selected.size(),selected[0].hp,selected[0].max,selection_status()]
   message.text=note if note_timer>0 else pace_hint()+'    |    F: army    R: enemy base    . : worker'
   result.text='PAUSED' if paused and outcome=='' and not settings_menu.is_open() else ''
   icon_hud.update()
@@ -696,7 +730,7 @@ func _process(dt):
  if formation_video or combat_video or economy_video or ai_video or map_video or roles_video or blocking_video or results_video or defense_video or arrival_video or polish_video or blue_orders_video or woodland_video:RenderingServer.force_draw(false)
 func pace_hint():
  if outcome!='':return 'Match ended: review results or play again'
- if supply!=null and supply.enabled:return 'Destroy enemy Town Center | Camps: +12 gold / +6 wood every 10s | F: army, T/Y: send'
+ if supply!=null and supply.enabled:return 'Destroy enemy Town Center | F: army'
  if time<150:return 'Prepare: workers, house, barracks (%ds)'%int(ceil(150-time))
  if time<300:return 'Contest: defend routes and secure rich gold'
  return 'Push: replace losses and attack production'
@@ -710,21 +744,31 @@ func selection_status():
  if u.kind=='Pawn':return '%s · %d/15 %s'%[u.work_state,u.carry,u.carry_kind]
  if contains_entity(buildings,u):return 'Right-click ground, friendly unit or resource to rally' if u.kind in ['Castle','Barracks','Workshop'] else role_text(u.kind)
  return role_text(u.kind)
+func resting_unit(u):
+ return u.target==null and u.job==null and u.formation<0 and u.mode in ['guard','stop','move','attack_move'] and u.p.distance_to(u.goal)<=6
 func separate(dt):
  for i in range(units.size()):
   for j in range(i):
    var a=units[i];var b=units[j];var d=a.p-b.p
-   if a.team!=b.team:continue
-   # Formation slots already provide spacing. Pushing these allies fights the
-   # slot controller during turns and creates a feedback loop.
+   if a.team!=b.team or a.hp<=0 or b.hp<=0:continue
    if a.formation>=0 and a.formation==b.formation and a.target==null and b.target==null:continue
    var spacing=blocking.radius(a)+blocking.radius(b)-2.0
-   if d.length()<spacing and d.length()>0.1:
-    var push=d.normalized()*min((spacing-d.length())*0.5,dt*65)
-    if walkable(a.p+push):blocking.move(a,a.p+push,false)
-    if walkable(b.p-push):blocking.move(b,b.p-push,false)
+   if d.length()>=spacing-0.2:continue
+   var rest_a=resting_unit(a);var rest_b=resting_unit(b)
+   # Coincident centers use a deterministic direction, never random avoidance.
+   var direction=d.normalized() if d.length()>0.01 else Vector2.RIGHT
+   var correction=direction*min(spacing-d.length(),dt*65)
+   var share_a=0.0 if rest_a and not rest_b else (1.0 if rest_b and not rest_a else 0.5)
+   var before_a=a.p;var before_b=b.p
+   if walkable(a.p+correction*share_a):blocking.move(a,a.p+correction*share_a,false)
+   if walkable(b.p-correction*(1.0-share_a)):blocking.move(b,b.p-correction*(1.0-share_a),false)
+   # Adopt the resolved resting position instead of walking back into overlap.
+   if rest_a and a.p!=before_a:a.goal=a.p;a.path=PackedVector2Array()
+   if rest_b and b.p!=before_b:b.goal=b.p;b.path=PackedVector2Array()
 func footprint(b):
- return Vector2(92 if b.kind=='Castle' else 57,45)
+ return building_half_size(b.kind)
+func building_half_size(kind):
+ return {'Castle':Vector2(92,45),'House1':Vector2(44,22),'Tower':Vector2(34,24),'Barracks':Vector2(62,32),'Smith':Vector2(60,30),'Workshop':Vector2(70,36),'Depot':Vector2(52,26)}.get(kind,Vector2(57,45))
 func target_point(v,from):
  if contains_entity(buildings,v):
   var half=footprint(v)
@@ -755,10 +799,13 @@ func attack_clear(u,v):
   var p=u.p.lerp(end,float(i)/steps)
   if u.kind not in ['Archer','Tower','Catapult'] and not land(p):return false
   for b in buildings:
-   if is_same(b,u) or is_same(b,v):continue
+   if b.progress<=0 or is_same(b,u) or is_same(b,v):continue
    if Rect2(b.p-footprint(b),footprint(b)*2).has_point(p):return false
  return true
+func attackable(v):
+ return v.hp>0 and (not contains_entity(buildings,v) or v.progress>0)
 func can_attack(u,v):
+ if not attackable(v):return false
  if u.kind=='Catapult' and combat_gap(u,v)<75:return false
  return v.hp>0 and fog.sees(u.team,v.p) and combat_gap(u,v)<=attack_range(u)+0.01 and attack_clear(u,v)
 func combat_step(u,dt):
@@ -796,7 +843,9 @@ func fire(u,v,d):
  var tower_branch=tower_upgrades.branch(u) if u.kind=='Tower' else ''
  sfx.play({'arrow':'tower_rapid','cannon':'tower_cannon'}.get(tower_branch,'bolt'),u.p)
  if tower_branch!='':u['shot_at']=time
- shots.append({'blast_radius':tower_upgrades.splash(u) if tower_branch=='cannon' else 0.0,'raw_damage':d,'muzzle_height':art.building_rect(u).size.y*0.65 if u.kind=='Tower' else 25.0,'tower_branch':tower_branch,'p':u.p,'end':target_point(v,u.p),'target':v,'damage':strike_damage(u,v,d),'shield':v.kind=='Warrior','siege':u.kind=='Catapult','team':u.team,'attack_bonus':technology.bonus(u,'attack'),'start':u.p,'flight':0.0,'dead':false})
+ var hit= v.p if u.kind=='Catapult' and contains_entity(buildings,v) else target_point(v,u.p)
+ var visual_hit=hit-Vector2(0,art.building_rect(v).size.y*0.42 if contains_entity(buildings,v) else 18.0)
+ shots.append({'blast_radius':tower_upgrades.splash(u) if tower_branch=='cannon' else 0.0,'raw_damage':d,'muzzle_height':art.building_rect(u).size.y*0.65 if u.kind=='Tower' else 25.0,'tower_branch':tower_branch,'p':u.p,'end':hit,'visual_end':visual_hit,'target':v,'damage':strike_damage(u,v,d),'shield':v.kind=='Warrior','siege':u.kind=='Catapult','team':u.team,'attack_bonus':technology.bonus(u,'attack'),'start':u.p,'flight':0.0,'dead':false})
 func strike_damage(u,v,base):
  var amount=float(base)
  if u.kind=='Tower' and tower_upgrades.branch(u)=='cannon':return maxf(1.0,amount-armor_value(v))
@@ -811,6 +860,7 @@ func strike_damage(u,v,base):
 func role_text(kind):
  return {'Cavalry':'Mounted knight | Speed 140 | Armor 2 | Weak to spearmen','Warrior':'Front line | blocks 6 arrow damage | 32 vs buildings','Archer':'Ranged support | half damage within 64px | 6 vs buildings','Spearman':'Reach 42 | +18 vs cavalry | +9 vs swordsmen','Catapult':'Siege | 90 vs buildings | splash 55 | minimum range 75','Smith':'Two levels: attack +3 / armor +2 | existing and future troops','Depot':'Local gold and wood delivery | Protect your expansion','Workshop':'Trains catapults | Protect siege with infantry','Tower':'Area defense | 260px range | vulnerable to massed melee'}.get(kind,'')
 func damage(v,d):
+ if not attackable(v):return
  if outcome!='':return
  if v.hp<=0:return
  sfx.play("metal" if v.kind in ["Warrior","Tower"] else "hit",v.p)
@@ -818,6 +868,8 @@ func damage(v,d):
  v['hurt_time']=0.16
  v.hp-=d;floating(v.p,'−'+str(d),Color('#fff0cb'))
  if v.hp<=0:
+  if contains_entity(buildings,v) and not v.get('nav_removed',false):
+   invalidate_building_nav(v);v['nav_removed']=true
   sfx.play("collapse" if contains_entity(buildings,v) else "death",v.p)
   kills+=1;effects.append({"p":v.p,"life":0.8,"text":"✦","color":Color('#edb46b')})
 func floating(p,s,c):effects.append({"p":p-Vector2(0,40),"life":0.9,"text":s,"color":c})
@@ -832,7 +884,9 @@ func _draw():
  for b in buildings:
   if fog.render_known(0,b.p) and (b.team==0 or fog.render_sees(0,b.p)):art.building_ground(b)
  var things=resources.filter(func(r):return r.amount>0)+buildings+units
- things.sort_custom(func(a,b):return a.p.y<b.p.y)
+ for thing in things:
+  if not thing.has('render_id'):render_serial+=1;thing['render_id']=render_serial
+ things.sort_custom(render_before)
  for e in things:
   if e.has("team") and e.team!=0 and not fog.render_sees(0,e.p):continue
   if not fog.render_known(0,e.p):continue
@@ -843,8 +897,7 @@ func _draw():
   if p.x<cam.x-180 or p.x>cam.x+field_rect().size.x+160 or p.y<cam.y-180 or p.y>cam.y+get_viewport_rect().size.y:continue
   if e.has('amount'):
    if e.kind=='wood':
-    var obscures=units.any(func(u):return u.hp>0 and fog.render_sees(0,u.p) and abs(u.p.x-p.x)<50 and u.p.y<p.y+5 and u.p.y>p.y-90)
-    sprite('Tree3' if int(p.x)%3==0 else 'TreeSmall',p-Vector2(0,40),0.64,false,1,Color(1,1,1,0.45 if obscures else 1.0))
+    sprite('Tree3' if int(p.x)%3==0 else 'TreeSmall',p-Vector2(0,40),0.64,false,1,Color(1,1,1,e.get('canopy_alpha',1.0)))
    else:
     if e.get('zone','')=='RICH':
      draw_circle(p,38,Color(0.95,0.74,0.25,0.18))
@@ -893,13 +946,32 @@ func _draw():
   if not fog.render_sees(0,s.p):continue
   if s.get('siege',false):
    var ratio=clampf(s.start.distance_to(s.p)/maxf(1,s.start.distance_to(s.end)),0,1)
-   draw_circle(s.p,7,Color(0.1,0.12,0.1,0.25));draw_circle(s.p-Vector2(0,22+sin(ratio*PI)*80),7,Color('#aaa28f'));continue
+   var stone=siege_visual_position(s,ratio)
+   draw_circle(s.p,7,Color(0.1,0.12,0.1,0.25));draw_circle(stone,7,Color('#aaa28f'));draw_circle(stone+Vector2(-2,-2),2,Color('#d4c9b0'));continue
   if s.get('tower_branch','')!='':tower_upgrades.draw_projectile(s);continue
   var dir=(s.end-s.p).normalized();var head=s.p-Vector2(0,25)+dir*12
   draw_line(head-dir*15,head,Color('#b99562'),2,true)
   draw_colored_polygon(PackedVector2Array([head+dir*4,head-dir*3+dir.orthogonal()*3,head-dir*3-dir.orthogonal()*3]),Color('#e4e5cc'))
  for fx in effects:
-  if not fog.render_sees(0,fx.p):continue
+  if fx.get('command_flag',false):continue
+  if not fog.render_sees(0,fx.get('visibility_point',fx.p)):continue
+  if fx.get('siege_impact',false):
+   var age=1-fx.life/0.45
+   draw_circle(fx.p,10*(1-age),Color(1,.82,.48,(1-age)*.8))
+   for i in range(7):
+    var direction=Vector2.from_angle(i*TAU/7)
+    var debris=fx.p+direction*(6+age*27)+Vector2(0,age*age*16)
+    draw_circle(debris,3*(1-age)+1,Color(.65,.57,.44,1-age))
+   continue
+  if fx.get('attack_order',false):
+   var center=fx.p
+   if fx.target!=null and fx.target.hp>0 and fog.render_sees(0,fx.target.p):center=target_point(fx.target,fx.p)-Vector2(0,18)
+   var fade=clampf(fx.life/0.25,0,1);var radius=18+16*fx.life/0.65
+   for i in range(4):
+    var axis=Vector2.from_angle(PI/4+i*PI/2)
+    var corner=center+axis*radius
+    draw_polyline(PackedVector2Array([corner-axis.rotated(-PI/4)*9,corner,corner-axis.rotated(PI/4)*9]),Color(1,0.48,0.25,fade),3,true)
+   continue
   if fx.has('tower_hit'):tower_upgrades.draw_impact(fx);continue
   if fx.get('impact',false):
    var fade=clampf(fx.life/0.18,0,1)
@@ -939,22 +1011,17 @@ func _draw():
   draw_string_outline(font,person+Vector2(14,10),count_text,HORIZONTAL_ALIGNMENT_LEFT,-1,13,3,Color('#373b28'))
   draw_string(font,person+Vector2(14,10),count_text,HORIZONTAL_ALIGNMENT_LEFT,-1,13,Color('#b4dfbd'))
  fog.draw_world()
- if drag:draw_rect(Rect2(drag_start,world_mouse()-drag_start).abs(),Color(1,0.9,0.55,0.15));draw_rect(Rect2(drag_start,world_mouse()-drag_start).abs(),Color('#ffe09b'),false,1)
+ if drag:draw_rect(Rect2(drag_screen+cam,get_global_mouse_position()-drag_screen).abs(),Color(1,0.9,0.55,0.15));draw_rect(Rect2(drag_screen+cam,get_global_mouse_position()-drag_screen).abs(),Color('#ffe09b'),false,1)
  if build_mode!='':
   var pos=preview_position if preview_override else world_mouse()
   var workers=selected.filter(func(u):return u.kind=='Pawn' and u.team==0 and u.hp>0)
   var reason=economy.placement_reason(build_mode,pos,workers)
   var tint=Color('#8fe0a5') if reason=='' else Color('#ef817c')
-  draw_rect(Rect2(pos-Vector2(57,45),Vector2(114,90)),Color(tint,0.22))
-  draw_rect(Rect2(pos-Vector2(57,45),Vector2(114,90)),tint,false,2)
+  var half=building_half_size(build_mode)
+  draw_rect(Rect2(pos-half,half*2),Color(tint,0.22))
+  draw_rect(Rect2(pos-half,half*2),tint,false,2)
   sprite('Blue_'+build_mode,pos-Vector2(0,45),0.8,false,1,Color(tint,0.65))
   draw_string(ThemeDB.fallback_font,pos+Vector2(-80,75),'Click to build · %d wood'%cost(build_mode) if reason=='' else reason,HORIZONTAL_ALIGNMENT_LEFT,-1,15,tint)
- for b in selected:
-  if contains_entity(buildings,b) and b.kind in ['Castle','Barracks','Workshop']:
-   var leader=b.get('rally_unit')
-   var flag=leader.p if leader!=null and leader.hp>0 else b.rally
-   draw_line(flag,flag-Vector2(0,42),Color('#f6e3a2'),3)
-   draw_colored_polygon(PackedVector2Array([flag-Vector2(0,42),flag+Vector2(24,-34),flag-Vector2(0,25)]),Color('#68c8ee'))
  draw_set_transform(Vector2.ZERO)
  draw_set_transform(Vector2(0,get_viewport_rect().size.y-900))
  # Minimap remains readable while the main view scrolls.
@@ -1134,6 +1201,12 @@ func update_formations(dt):
    if not nav_clear(slot):slot=Vector2(nearest_cell(slot))*20+Vector2(10,10)
    u.slot_velocity=(slot-u.goal)/max(dt,0.0001)
    u.goal=slot
+  # Release the entire completed formation together, so removing one member
+  # cannot reindex everybody else's slots and restart position corrections.
+  if f.anchor.p.distance_to(f.destination)<=8 and members.all(func(u):return u.target==null and u.job==null and formation_arrived(u) and u.slot_velocity.length()<0.1):
+   for u in members:
+    u.formation=-1;u.goal=u.p;u.slot_velocity=Vector2.ZERO;u.path=PackedVector2Array()
+    if u.mode=='move':u.mode='guard'
 func setup_formation_video():
  ai_enabled=false
  units.clear();selected.clear();formations.clear();raid=999;cam=Vector2(320,220)
@@ -1332,3 +1405,48 @@ func restore_idle_guard(u,dt=0.0):
    var formation=formations[u.formation]
    if formation.anchor.p.distance_to(formation.destination)>8 or u.slot_velocity.length()>0.1:return
   u.mode='guard';u.path=PackedVector2Array()
+
+func _input(event):
+ # UI may consume the release before _unhandled_input sees it.
+ if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed:
+  call_deferred('cancel_selection_drag')
+func cancel_selection_drag():drag=false
+func finish_selection(screen_pos,additive=false):
+ drag=false
+ var point=screen_pos+cam
+ if not additive:selected.clear()
+ if screen_pos.distance_to(drag_screen)>12:
+  var box=Rect2(drag_screen+cam,screen_pos-drag_screen).abs()
+  var candidates=units.filter(func(u):return u.hp>0 and u.team==0 and box.has_point(u.p))
+  if candidates.any(func(u):return u.kind!='Pawn'):
+   candidates=candidates.filter(func(u):return u.kind!='Pawn')
+  for u in candidates:
+   if not contains_entity(selected,u):selected.append(u)
+ else:
+  var hit=pick(point,true)
+  if hit!=null and not contains_entity(selected,hit):selected.append(hit)
+ refresh_commands()
+func render_before(a,b):
+ if a.p.y!=b.p.y:return a.p.y<b.p.y
+ if a.p.x!=b.p.x:return a.p.x<b.p.x
+ return a.get('render_id',0)<b.get('render_id',0)
+func update_tree_fades(dt):
+ for tree in resources:
+  if tree.kind!='wood' or tree.amount<=0:continue
+  var p=tree.p;var margin=8.0 if tree.get('canopy_obscured',false) else 0.0
+  var obscures=units.any(func(u):return u.hp>0 and fog.render_sees(0,u.p) and abs(u.p.x-p.x)<50+margin and u.p.y<p.y+5+margin and u.p.y>p.y-90-margin)
+  tree['canopy_obscured']=obscures
+  tree['canopy_alpha']=move_toward(tree.get('canopy_alpha',1.0),0.45 if obscures else 1.0,dt*2.2)
+
+func formation_arrived(u):
+ if u.p.distance_to(u.goal)<=5:return true
+ # Another squad may already occupy the final slot. Accept contact as arrival
+ # and let separation resolve resting bodies once, instead of fighting the slot.
+ for ally in units:
+  if is_same(ally,u) or ally.hp<=0 or ally.team!=u.team or ally.formation==u.formation or ally.target!=null:continue
+  var spacing=blocking.radius(u)+blocking.radius(ally)
+  if u.p.distance_to(u.goal)<=spacing+4 and ally.p.distance_to(u.goal)<spacing and ally.p.distance_to(ally.goal)<=spacing:return true
+ return false
+
+func siege_visual_position(shot,ratio):
+ return (shot.start-Vector2(0,22)).lerp(shot.get('visual_end',shot.end-Vector2(0,18)),ratio)-Vector2(0,sin(ratio*PI)*80)
